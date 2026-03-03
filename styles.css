@@ -145,12 +145,11 @@ div[class*="MyClassList__showArchiveButton"] {
     display: none !important;
 }
 
-/* --- THE TRIGGER BUTTON (From Reference) --- */
+/* --- THE TRIGGER BUTTON --- */
 .toddle-color-btn {
     position: absolute !important;
     top: 50% !important;
     right: 15px !important;
-    /* TranslateY keeps it perfectly centered vertically */
     transform: translateY(-50%) !important; 
     width: 24px !important;
     height: 24px !important;
@@ -164,19 +163,31 @@ div[class*="MyClassList__showArchiveButton"] {
     box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
     transition: transform 0.1s, opacity 0.2s !important;
     border: 1px solid #ddd !important;
-    opacity: 0; /* Hidden by default */
+    opacity: 0 !important; /* Hidden by default */
 }
 
-/* Show button on card hover */
+/* Specific position for Timetable Page events */
+div[class*="TimetableCalendarEvent__eventContainer"] .toddle-color-btn {
+    top: auto !important;
+    bottom: 5px !important;
+    right: 5px !important;
+    transform: none !important;
+}
+
+/* Show button on parent hover (Dashboard Cards or Timetable Events) */
 div[class*="ClassCardV2__container"]:hover .toddle-color-btn,
+div[class*="TimetableCalendarEvent__eventContainer"]:hover .toddle-color-btn,
 .toddle-color-btn:hover {
     opacity: 1 !important;
 }
 
 .toddle-color-btn:hover {
-    /* Scale added to translateY to maintain vertical centering on hover */
     transform: translateY(-50%) scale(1.1) !important; 
     border-color: #999 !important;
+}
+
+div[class*="TimetableCalendarEvent__eventContainer"] .toddle-color-btn:hover {
+    transform: scale(1.1) !important;
 }
 
 /* --- INNER INDICATOR --- */
@@ -187,17 +198,17 @@ div[class*="ClassCardV2__container"]:hover .toddle-color-btn,
     border: 1px solid rgba(0,0,0,0.1);
 }
 
-/* --- POPUP MENU (From Reference) --- */
+/* --- POPUP MENU --- */
 .toddle-palette-popup {
-    display: none; /* Hidden by default */
-    position: fixed; /* Fixed to viewport */
-    z-index: 2147483647 !important; /* Max Z-Index */
+    display: none;
+    position: fixed;
+    z-index: 2147483647 !important;
     background-color: white;
     padding: 10px;
     border-radius: 12px;
     box-shadow: 0 5px 25px rgba(0,0,0,0.2);
     border: 1px solid #eee;
-    width: 145px;
+    width: 155px; /* Increased to accommodate Timetable+ layout */
     flex-wrap: wrap;
     gap: 8px;
     align-content: flex-start;
@@ -244,7 +255,7 @@ div[class*="ClassCardV2__container"]:hover .toddle-color-btn,
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    background: #f5f5f5;
+    background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
 }
 
 .toddle-custom-input {
@@ -255,6 +266,62 @@ div[class*="ClassCardV2__container"]:hover .toddle-color-btn,
     width: 100%;
     height: 100%;
     cursor: pointer;
+}
+
+/* --- NEW: CUSTOM STYLE (GRADIENT) AREA --- */
+.custom-style-btn {
+    width: 100%;
+    text-align: center;
+    padding: 6px;
+    margin-top: 5px;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.custom-style-btn:hover {
+    background-color: #eee;
+}
+
+.custom-input-area {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-top: 5px;
+    border-top: 1px solid #eee;
+    padding-top: 8px;
+}
+
+.custom-input-area.visible {
+    display: flex;
+}
+
+.custom-text-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 11px;
+    box-sizing: border-box;
+}
+
+.apply-custom-btn {
+    background-color: #333;
+    color: white;
+    border: none;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.apply-custom-btn:hover {
+    background-color: #000;
 }
 
 /* ========================================= */

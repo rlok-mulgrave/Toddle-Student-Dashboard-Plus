@@ -3,12 +3,24 @@
   "name": "Toddle Dashboard+",
   "version": "1.4",
   "description": "Toddle Dashboard+",
-  "permissions": ["storage"], 
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://web.toddleapp.com/*",
+    "https://*.toddleapp.com/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["*://web.toddleapp.com/*"],
-      "css": ["styles.css"],
-      "js": ["content.js"]
+      "matches": [
+        "*://web.toddleapp.com/*"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ]
 }

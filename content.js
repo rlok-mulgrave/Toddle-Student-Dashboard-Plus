@@ -1,35 +1,57 @@
-// 1. CONFIGURATION
+// =========================================
+// 1. CONFIGURATION & STATE
+// =========================================
 const PRESET_COLORS = [
     "#FFADAD", "#FFD6A5", "#FDFFB6", "#CAFFBF",
     "#9BF6FF", "#A0C4FF", "#BDB2FF", "#FFC6FF",
     "#84DCC6",
-    "rainbow",    // Pastel Rainbow
-    "rainbow-2"   // Sunset Gradient
+    "rainbow",
+    "rainbow-2"
 ];
 
-let classColors = {};
-let studentTasks = []; 
-let activeCardId = null;
+let savedColors = {}; // Shared map for BOTH classes (dashboard) and courses (timetable)
+let studentTasks = [];
+let activeItemId = null; // Can be a card title or course name
 let globalPopup = null;
 
-// 2. LOAD DATA
-chrome.storage.sync.get(['classColors', 'studentTasks'], (result) => {
-    if (result.classColors) {
-        classColors = result.classColors;
-    }
-    if (result.studentTasks) {
-        studentTasks = result.studentTasks;
-    }
-    processClassCards(); 
-});
+// =========================================
+// 2. DATA LOAD & CORE SYNC
+// =========================================
+function loadExtensionData() {
+    // Migration check: Support both legacy keys if they exist
+    chrome.storage.sync.get(['savedColors', 'classColors', 'courseColors', 'studentTasks'], (result) => {
+        if (result.savedColors) {
+            savedColors = result.savedColors;
+        } else {
+            // Merge legacy data into new unified map
+            savedColors = { ...(result.classColors || {}), ...(result.courseColors || {}) };
+        }
+        
+        if (result.studentTasks) studentTasks = result.studentTasks;
 
-// 3. CREATE GLOBAL POPUP (Singleton)
+        runPageLogic();
+    });
+}
+
+function runPageLogic() {
+    const url = window.location.href;
+    if (url.includes('/courses')) {
+        processDashboardCards();
+    } else if (url.includes('/timetable')) {
+        processTimetableEvents();
+    }
+}
+
+// =========================================
+// 3. UNIFIED POPUP UI
+// =========================================
 function createGlobalPopup() {
     if (document.querySelector('.toddle-palette-popup')) return;
 
     globalPopup = document.createElement('div');
     globalPopup.className = 'toddle-palette-popup';
 
+    // Preset Swatches
     PRESET_COLORS.forEach(color => {
         const swatch = document.createElement('div');
         swatch.className = 'color-swatch';
@@ -46,42 +68,78 @@ function createGlobalPopup() {
 
         swatch.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (activeCardId) saveAndApplyColor(activeCardId, color);
+            if (activeItemId) saveAndApplyColor(activeItemId, color);
             hidePopup();
         });
         globalPopup.appendChild(swatch);
     });
 
-    const customWrapper = document.createElement('div');
-    customWrapper.className = 'custom-picker-container';
-    customWrapper.title = 'Color Wheel';
+    // Custom Color Picker (Wheel)
+    const wheelWrapper = document.createElement('div');
+    wheelWrapper.className = 'custom-picker-container';
+    wheelWrapper.title = 'Color Wheel';
+    wheelWrapper.innerHTML = '🎨';
     
-    const icon = document.createElement('div');
-    icon.innerHTML = '🎨'; 
-    icon.style.pointerEvents = 'none';
-    
-    const customInput = document.createElement('input');
-    customInput.type = 'color';
-    customInput.className = 'toddle-custom-input';
-    customInput.addEventListener('input', (e) => {
-        if (activeCardId) saveAndApplyColor(activeCardId, e.target.value);
+    const wheelInput = document.createElement('input');
+    wheelInput.type = 'color';
+    wheelInput.className = 'toddle-custom-input';
+    wheelInput.addEventListener('input', (e) => {
+        if (activeItemId) saveAndApplyColor(activeItemId, e.target.value);
     });
-    customInput.addEventListener('click', (e) => e.stopPropagation());
+    wheelInput.addEventListener('click', (e) => e.stopPropagation());
 
-    customWrapper.appendChild(icon);
-    customWrapper.appendChild(customInput);
-    globalPopup.appendChild(customWrapper);
+    wheelWrapper.appendChild(wheelInput);
+    globalPopup.appendChild(wheelWrapper);
+
+    // Custom Style (CSS Gradient) Area
+    const customStyleBtn = document.createElement('div');
+    customStyleBtn.className = 'custom-style-btn';
+    customStyleBtn.textContent = 'Custom Style...';
+    
+    const customArea = document.createElement('div');
+    customArea.className = 'custom-input-area';
+    
+    const customTextInput = document.createElement('input');
+    customTextInput.type = 'text';
+    customTextInput.className = 'custom-text-input';
+    customTextInput.placeholder = 'CSS (e.g. linear-gradient...)';
+    
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'apply-custom-btn';
+    applyBtn.textContent = 'Apply Style';
+    
+    applyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (activeItemId && customTextInput.value.trim()) {
+            saveAndApplyColor(activeItemId, customTextInput.value.trim());
+        }
+        hidePopup();
+    });
+    
+    customTextInput.addEventListener('click', (e) => e.stopPropagation());
+    customStyleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        customArea.classList.toggle('visible');
+    });
+
+    customArea.appendChild(customTextInput);
+    customArea.appendChild(applyBtn);
+    globalPopup.appendChild(customStyleBtn);
+    globalPopup.appendChild(customArea);
 
     document.body.appendChild(globalPopup);
 }
 
-// 4. POPUP LOGIC
-function showPopup(btnElement, cardId) {
+function showPopup(btnElement, itemId) {
     if (!globalPopup) createGlobalPopup();
 
-    activeCardId = cardId;
+    activeItemId = itemId;
     const rect = btnElement.getBoundingClientRect();
     globalPopup.classList.add('visible');
+
+    // Reset custom area state
+    const customArea = globalPopup.querySelector('.custom-input-area');
+    if (customArea) customArea.classList.remove('visible');
 
     const popupHeight = globalPopup.offsetHeight;
     const popupWidth = globalPopup.offsetWidth;
@@ -98,7 +156,7 @@ function showPopup(btnElement, cardId) {
 
 function hidePopup() {
     if (globalPopup) globalPopup.classList.remove('visible');
-    activeCardId = null;
+    activeItemId = null;
 }
 
 document.addEventListener('click', (e) => {
@@ -107,57 +165,203 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// --- TO-DO LIST LOGIC ---
-function injectTodoTab() {
-    const tabContainer = document.querySelector('.tabs-container');
-    const overdueTab = document.querySelector('label[for*="OVERDUE"]');
-    
-    // We specifically target the parent container to add our class later
-    const cardsContainer = document.querySelector('div[class*="ConsolidatedDeadlinesWidget__cardsContainer"]');
+// =========================================
+// 4. DASHBOARD FEATURE LOGIC
+// =========================================
+function processDashboardCards() {
+    organizeLayout();
+    moveProjectsToDock();
+    injectTodoTab();
+    injectQuickAddButtons();
+    fetchAndInjectTimetablePreview();
 
-    if (!tabContainer || !overdueTab || !cardsContainer || document.getElementById('toddle-todo-tab')) return;
+    const cards = document.querySelectorAll('div[class*="ClassCardV2__container"]');
+    cards.forEach(card => {
+        const titleEl = card.querySelector('div[class*="ClassCardV2__classLabel"]');
+        if (!titleEl) return;
+
+        // Label cleanup
+        if (!titleEl.dataset.shortened) {
+            let text = titleEl.textContent;
+            if (text.startsWith("LEAP")) {
+                const parts = text.split(' - ');
+                if (parts.length > 2) titleEl.textContent = parts.slice(0, 2).join(' - ').trim();
+            } else if (text.includes(' - ')) {
+                titleEl.textContent = text.split(' - ')[0].trim();
+            }
+            titleEl.dataset.shortened = "true";
+        }
+
+        const classId = titleEl.textContent.trim();
+        applyVisualStyle(card, savedColors[classId]);
+        injectColorButton(card, classId);
+    });
+}
+
+function organizeLayout() {
+    if (document.getElementById('my-custom-dock')) return;
+    const labels = document.querySelectorAll('div[class*="ButtonCard__label"]');
+    for (let label of labels) {
+        if (label.textContent.trim() === 'Announcements') {
+            const card = label.closest('div[class*="ButtonCard__container"]');
+            if (card?.parentElement) card.parentElement.id = "my-custom-dock"; 
+            break;
+        }
+    }
+}
+
+function moveProjectsToDock() {
+    const dock = document.getElementById('my-custom-dock');
+    if (!dock) return;
+
+    ['DP_CAS', 'DP_TOK_ESSAY'].forEach(id => {
+        const card = document.querySelector(`div[data-test-id="button-dashboard-projectGroup-${id}"]`);
+        if (card && card.parentElement.id !== 'my-custom-dock') dock.appendChild(card);
+    });
+
+    const projectsList = document.querySelector('div[class*="GroupedProjectGroupList__container"]');
+    if (projectsList) projectsList.style.display = 'none';
+}
+
+// =========================================
+// 5. TIMETABLE PAGE LOGIC
+// =========================================
+function processTimetableEvents() {
+    const events = document.querySelectorAll('.rbc-event');
+    events.forEach(eventWrapper => {
+        const container = eventWrapper.querySelector('div[class*="TimetableCalendarEvent__eventContainer"]');
+        if (!container) return;
+
+        const titleEl = container.querySelector('div[class*="TimetableCalendarEvent__titleLabel"]');
+        if (!titleEl) return;
+
+        const courseName = titleEl.textContent.trim();
+        applyVisualStyle(container, savedColors[courseName]);
+        injectColorButton(container, courseName);
+    });
+}
+
+// =========================================
+// 6. SHARED HELPERS (VISUALS)
+// =========================================
+function injectColorButton(parent, itemId) {
+    if (parent.querySelector('.toddle-color-btn')) {
+        const indicator = parent.querySelector('.toddle-color-indicator');
+        if (indicator) updateIndicatorColor(indicator, savedColors[itemId]);
+        return;
+    }
+
+    const btn = document.createElement('div');
+    btn.className = 'toddle-color-btn';
+    btn.title = 'Customize Color';
+
+    const indicator = document.createElement('div');
+    indicator.className = 'toddle-color-indicator';
+    updateIndicatorColor(indicator, savedColors[itemId]);
+
+    btn.appendChild(indicator);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (activeItemId === itemId && globalPopup?.classList.contains('visible')) {
+            hidePopup();
+        } else {
+            showPopup(btn, itemId);
+        }
+    });
+
+    parent.appendChild(btn);
+}
+
+function applyVisualStyle(element, color) {
+    if (!color) return;
+    
+    // Gradient check
+    if (color === "rainbow" || color === "rainbow-2" || color.includes('gradient') || color.includes('url')) {
+        let styleVal = color;
+        if (color === "rainbow") styleVal = "linear-gradient(135deg, #FFADAD, #FFD6A5, #FDFFB6, #CAFFBF, #9BF6FF, #A0C4FF, #BDB2FF, #FFC6FF)";
+        if (color === "rainbow-2") styleVal = "linear-gradient(135deg, #845EC2, #D65DB1, #FF6F91, #FF9671, #FFC75F, #F9F871)";
+        
+        element.style.setProperty('background', `${styleVal} !important`);
+        element.style.setProperty('border-color', 'transparent', 'important');
+    } else {
+        // Solid color
+        element.style.setProperty('background', color, 'important');
+        element.style.setProperty('background-color', color, 'important');
+        element.style.setProperty('border-color', color, 'important');
+    }
+}
+
+function updateIndicatorColor(indicator, color) {
+    if (!color) {
+        indicator.style.background = "#eee";
+        return;
+    }
+    applyVisualStyle(indicator, color);
+}
+
+function saveAndApplyColor(itemId, color) {
+    savedColors[itemId] = color;
+    chrome.storage.sync.set({ savedColors: savedColors });
+
+    // Instantly update all instances on the page
+    document.querySelectorAll('.toddle-color-btn').forEach(btn => {
+        const parent = btn.parentElement;
+        const potentialLabels = [
+            'div[class*="ClassCardV2__classLabel"]',
+            'div[class*="TimetableCalendarEvent__titleLabel"]'
+        ];
+        
+        for (let selector of potentialLabels) {
+            const label = parent.querySelector(selector);
+            if (label && label.textContent.trim() === itemId) {
+                applyVisualStyle(parent, color);
+                updateIndicatorColor(btn.querySelector('.toddle-color-indicator'), color);
+                break;
+            }
+        }
+    });
+}
+
+// =========================================
+// 7. TO-DO & TIMETABLE PREVIEW (DASHBOARD ONLY)
+// =========================================
+function injectTodoTab() {
+    const tabs = document.querySelector('.tabs-container');
+    const cardsContainer = document.querySelector('div[class*="ConsolidatedDeadlinesWidget__cardsContainer"]');
+    if (!tabs || !cardsContainer || document.getElementById('toddle-todo-tab')) return;
+
+    const overdueTab = document.querySelector('label[for*="OVERDUE"]');
+    if (!overdueTab) return;
 
     const todoTab = document.createElement('label');
     todoTab.id = 'toddle-todo-tab';
     todoTab.className = overdueTab.className.replace('active-tab', 'non-active-tab') + ' todo-tab-custom';
-    todoTab.innerHTML = `
-        <div class="flex justify-center items-center w-full" style="padding: 8px 8px 10px;">
-            <span class="truncate max-w-full">TO-DO</span>
-        </div>
-    `;
-
+    todoTab.innerHTML = `<div class="flex justify-center items-center w-full" style="padding: 8px 8px 10px;"><span class="truncate max-w-full">TO-DO</span></div>`;
     overdueTab.parentNode.insertBefore(todoTab, overdueTab.nextSibling);
 
     const todoContainer = document.createElement('div');
     todoContainer.id = 'toddle-todo-container';
     todoContainer.innerHTML = `
-        <div class="todo-input-wrapper">
-            <input type="text" id="todo-new-task" placeholder="Add a task...">
-            <button class="todo-add-btn">+</button>
-        </div>
+        <div class="todo-input-wrapper"><input type="text" id="todo-new-task" placeholder="Add a task..."><button class="todo-add-btn">+</button></div>
         <div class="todo-list-items" id="todo-items-list"></div>
         <button id="todo-clear-completed" class="todo-clear-btn">Clear Completed</button>
     `;
-    
-    // Append to the main container so it sits alongside the original list
     cardsContainer.appendChild(todoContainer);
 
-    // --- CLICK HANDLER ---
     todoTab.addEventListener('click', () => {
-        const allTabs = tabContainer.querySelectorAll('label');
-        allTabs.forEach(t => t.classList.remove('active-tab-light-inline', 'text-textDefault'));
-        allTabs.forEach(t => t.classList.add('non-active-tab-light-inline', 'text-textSubtle'));
+        tabs.querySelectorAll('label').forEach(t => { 
+            t.classList.remove('active-tab-light-inline', 'text-textDefault');
+            t.classList.add('non-active-tab-light-inline', 'text-textSubtle');
+        });
         todoTab.classList.add('active-tab-light-inline', 'text-textDefault');
         todoTab.classList.remove('non-active-tab-light-inline', 'text-textSubtle');
-
         document.body.classList.add('toddle-todo-active');
-        
         todoContainer.classList.add('active');
         renderTasks();
     });
 
-    const toddleLabels = tabContainer.querySelectorAll('label:not(#toddle-todo-tab)');
-    toddleLabels.forEach(tab => {
+    tabs.querySelectorAll('label:not(#toddle-todo-tab)').forEach(tab => {
         tab.addEventListener('click', () => {
             todoTab.classList.remove('active-tab-light-inline', 'text-textDefault');
             document.body.classList.remove('toddle-todo-active');
@@ -167,12 +371,7 @@ function injectTodoTab() {
 
     todoContainer.querySelector('.todo-add-btn').onclick = addNewTask;
     todoContainer.querySelector('#todo-new-task').onkeypress = (e) => { if(e.key === 'Enter') addNewTask(); };
-    todoContainer.querySelector('#todo-clear-completed').onclick = clearCompleted;
-}
-
-function clearCompleted() {
-    studentTasks = studentTasks.filter(t => !t.completed);
-    chrome.storage.sync.set({ studentTasks }, () => renderTasks());
+    todoContainer.querySelector('#todo-clear-completed').onclick = clearCompletedTasks;
 }
 
 function addNewTask() {
@@ -180,383 +379,141 @@ function addNewTask() {
     if (!input.value.trim()) return;
     studentTasks.push({ id: Date.now(), text: input.value.trim() });
     input.value = '';
-    chrome.storage.sync.set({ studentTasks }, () => renderTasks());
+    chrome.storage.sync.set({ studentTasks }, renderTasks);
+}
+
+function clearCompletedTasks() {
+    studentTasks = studentTasks.filter(t => !t.completed);
+    chrome.storage.sync.set({ studentTasks }, renderTasks);
 }
 
 function renderTasks() {
     const list = document.getElementById('todo-items-list');
-    const clearBtn = document.getElementById('todo-clear-completed');
     if (!list) return;
 
     list.innerHTML = studentTasks.length ? '' : '<div style="text-align:center; font-size:12px; color:#999; margin-top:20px;">No tasks yet!</div>';
     
-    const hasCompleted = studentTasks.some(t => t.completed);
-    if (clearBtn) clearBtn.style.display = hasCompleted ? 'block' : 'none';
+    document.getElementById('todo-clear-completed').style.display = studentTasks.some(t => t.completed) ? 'block' : 'none';
 
-    studentTasks.forEach((task) => {
+    studentTasks.forEach(task => {
         const item = document.createElement('div');
         item.className = `todo-item ${task.completed ? 'completed' : ''}`;
-        
         item.innerHTML = `
             <input type="checkbox" class="todo-item-checkbox" ${task.completed ? 'checked' : ''}>
-            <input type="text" class="todo-item-edit-input" value="${task.text}" title="Click to edit">
+            <input type="text" class="todo-item-edit-input" value="${task.text}">
             <span class="todo-item-delete">✕</span>
         `;
 
-        const editInput = item.querySelector('.todo-item-edit-input');
-        const checkbox = item.querySelector('.todo-item-checkbox');
+        item.querySelector('.todo-item-checkbox').onchange = (e) => {
+            task.completed = e.target.checked;
+            chrome.storage.sync.set({ studentTasks }, renderTasks);
+        };
 
-        checkbox.addEventListener('change', () => {
-            task.completed = checkbox.checked;
-            chrome.storage.sync.set({ studentTasks }, () => renderTasks());
-        });
-
-        editInput.addEventListener('blur', (e) => {
-            updateTask(task.id, e.target.value);
-        });
-
-        editInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') e.target.blur();
-        });
+        const edit = item.querySelector('.todo-item-edit-input');
+        edit.onblur = (e) => {
+            if (!e.target.value.trim()) { renderTasks(); return; }
+            task.text = e.target.value.trim();
+            chrome.storage.sync.set({ studentTasks });
+        };
+        edit.onkeypress = (e) => { if (e.key === 'Enter') e.target.blur(); };
 
         item.querySelector('.todo-item-delete').onclick = () => {
             studentTasks = studentTasks.filter(t => t.id !== task.id);
-            chrome.storage.sync.set({ studentTasks }, () => renderTasks());
+            chrome.storage.sync.set({ studentTasks }, renderTasks);
         };
-        
         list.appendChild(item);
     });
 }
 
-function updateTask(id, newText) {
-    const taskIndex = studentTasks.findIndex(t => t.id === id);
-    if (taskIndex > -1) {
-        if (newText.trim() === "") {
-            renderTasks();
-            return;
-        }
-        studentTasks[taskIndex].text = newText.trim();
-        chrome.storage.sync.set({ studentTasks });
-    }
-}
-
-// 5. MAIN PROCESS LOOP
-function processClassCards() {
-    organizeLayout();
-    moveProjectsToDock();
-    injectTodoTab();
-    injectQuickAddButtons();
-    fetchAndInjectTimetable();
-
-    if (!globalPopup) createGlobalPopup();
-
-    const cards = document.querySelectorAll('div[class*="ClassCardV2__container"]');
-
-    cards.forEach(card => {
-        if (getComputedStyle(card).position !== 'relative') {
-            card.style.position = 'relative';
-        }
-        
-        const titleEl = card.querySelector('div[class*="ClassCardV2__classLabel"]');
-        if (!titleEl) return;
-
-        if (!titleEl.dataset.shortened) {
-            let originalText = titleEl.textContent;
-            
-            if (originalText.startsWith("LEAP")) {
-                const parts = originalText.split(' - ');
-                if (parts.length > 2) {
-                    titleEl.textContent = parts.slice(0, 2).join(' - ').trim();
-                    titleEl.dataset.shortened = "true";
-                }
-            } else {
-                if (originalText.includes(' - ')) {
-                    titleEl.textContent = originalText.split(' - ')[0].trim();
-                    titleEl.dataset.shortened = "true";
-                }
-            }
-        }
-
-        const cardId = titleEl.textContent.trim();
-        applyVisuals(card, classColors[cardId]);
-
-        if (!card.querySelector('.toddle-color-btn')) {
-            const btn = document.createElement('div');
-            btn.className = 'toddle-color-btn';
-            btn.title = 'Customize Color';
-
-            const indicator = document.createElement('div');
-            indicator.className = 'toddle-color-indicator';
-            updateIndicatorVisual(indicator, classColors[cardId]);
-
-            btn.appendChild(indicator);
-
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (activeCardId === cardId && globalPopup.classList.contains('visible')) {
-                    hidePopup();
-                } else {
-                    showPopup(btn, cardId);
-                }
-            });
-
-            card.appendChild(btn);
-        } else {
-            const ind = card.querySelector('.toddle-color-indicator');
-            if (ind) updateIndicatorVisual(ind, classColors[cardId]);
-        }
-    });
-}
-
-// 6. HELPER FUNCTIONS
-function organizeLayout() {
-    let dockContainer = document.getElementById('my-custom-dock');
-    if (!dockContainer) {
-        const labels = document.querySelectorAll('div[class*="ButtonCard__label"]');
-        for (let label of labels) {
-            if (label.textContent.trim() === 'Announcements') {
-                const card = label.closest('div[class*="ButtonCard__container"]');
-                if (card && card.parentElement) {
-                    card.parentElement.id = "my-custom-dock"; 
-                    break;
-                }
-            }
-        }
-    }
-}
-
-function moveProjectsToDock() {
-    const dock = document.getElementById('my-custom-dock');
-    if (!dock) return;
-
-    const projectSelectors = [
-        'div[data-test-id="button-dashboard-projectGroup-DP_CAS"]',
-        'div[data-test-id="button-dashboard-projectGroup-DP_TOK_ESSAY"]'
-    ];
-
-    projectSelectors.forEach(selector => {
-        const card = document.querySelector(selector);
-        if (card && card.parentElement.id !== 'my-custom-dock') {
-            dock.appendChild(card);
-        }
-    });
-
-    const projectsContainer = document.querySelector('div[class*="GroupedProjectGroupList__container"]');
-    if (projectsContainer) {
-        projectsContainer.style.display = 'none';
-    }
-}
-
-// --- QUICK-ADD LOGIC ---
 function injectQuickAddButtons() {
-    const deadlineItems = document.querySelectorAll('div[class*="ConsolidatedDeadlinesWidget__item___"]');
+    document.querySelectorAll('div[class*="ConsolidatedDeadlinesWidget__item___"]').forEach(item => {
+        if (item.querySelector('.todo-quick-add-btn') || item.closest('#my-custom-timetable')) return;
 
-    deadlineItems.forEach(item => {
-        // Prevent "+" button from appearing on our custom timetable cards
-        if (item.classList.contains('is-timetable-card') || item.closest('#my-custom-timetable')) return;
-
-        if (item.querySelector('.todo-quick-add-btn') || 
-            item.classList.contains('ConsolidatedDeadlinesWidget__itemsWrapper___i6tIQ')) {
-            return;
-        }
-
-        const quickAdd = document.createElement('div');
-        quickAdd.className = 'todo-quick-add-btn';
-        quickAdd.title = 'Add to TO-DO List';
-        quickAdd.innerHTML = '+';
-
-        quickAdd.addEventListener('click', (e) => {
+        const btn = document.createElement('div');
+        btn.className = 'todo-quick-add-btn';
+        btn.innerHTML = '+';
+        btn.onclick = (e) => {
             e.stopPropagation();
-            e.preventDefault();
-
-            const taskHeading = item.querySelector('div[class*="ConsolidatedDeadlinesWidget__heading"]');
-            if (!taskHeading) return;
-
-            const taskText = taskHeading.textContent.trim();
-            
-            studentTasks.push({ id: Date.now(), text: taskText });
-            chrome.storage.sync.set({ studentTasks }, () => {
-                item.classList.add('todo-item-added-success');
-                setTimeout(() => item.classList.remove('todo-item-added-success'), 500);
-                renderTasks();
-            });
-        });
-
-        item.appendChild(quickAdd);
+            const heading = item.querySelector('div[class*="ConsolidatedDeadlinesWidget__heading"]');
+            if (heading) {
+                studentTasks.push({ id: Date.now(), text: heading.textContent.trim() });
+                chrome.storage.sync.set({ studentTasks }, () => {
+                    item.classList.add('todo-item-added-success');
+                    setTimeout(() => item.classList.remove('todo-item-added-success'), 500);
+                    renderTasks();
+                });
+            }
+        };
+        item.appendChild(btn);
     });
 }
 
-// --- FETCH AND INJECT TIMETABLE VIA HIDDEN IFRAME ---
-function fetchAndInjectTimetable() {
-    if (document.getElementById('my-custom-timetable') || document.getElementById('timetable-fetch-iframe')) return;
+function fetchAndInjectTimetablePreview() {
+    if (document.getElementById('my-custom-timetable') || !window.location.href.includes('/courses')) return;
     
-    const currentUrl = window.location.href;
-    if (!currentUrl.includes('/courses')) return;
-
-    const timetableUrl = currentUrl.replace('/courses', '/timetable');
-    
-    const rightSidebar = document.querySelector('div[class*="StudentCourses__deadlinesWidgetContainerV2"]');
-    if (!rightSidebar) return;
+    const sidebar = document.querySelector('div[class*="StudentCourses__deadlinesWidgetContainerV2"]');
+    if (!sidebar) return;
 
     const widget = document.createElement('div');
     widget.id = 'my-custom-timetable';
     widget.className = 'ConsolidatedDeadlinesWidget__containerV2___ONBa7';
-    
     widget.innerHTML = `
-        <div class="ConsolidatedDeadlinesWidget__todoHeader___cViri">
-            <div class="ConsolidatedDeadlinesWidget__todoText___aoSHk">Today's Timetable</div>
-        </div>
-        <div class="ConsolidatedDeadlinesWidget__bodyContainer___fqU_3">
-            <div id="timetable-loading-state" style="padding: 20px; text-align: center; color: #888; font-size: 14px;">
-                Loading today's classes...
-            </div>
-            <div class="ConsolidatedDeadlinesWidget__cardsContainer___TL_ZY" style="display: none;" id="timetable-content-wrapper">
-                <div class="ConsolidatedDeadlinesWidget__itemsWrapper___i6tIQ" id="timetable-events-list">
-                </div>
-            </div>
-        </div>
+        <div class="ConsolidatedDeadlinesWidget__todoHeader___cViri"><div class="ConsolidatedDeadlinesWidget__todoText___aoSHk">Today's Timetable</div></div>
+        <div id="timetable-loading" style="padding:20px; text-align:center; color:#888;">Loading classes...</div>
+        <div id="timetable-content" style="display:none;" class="ConsolidatedDeadlinesWidget__cardsContainer___TL_ZY"><div id="timetable-list" class="ConsolidatedDeadlinesWidget__itemsWrapper___i6tIQ"></div></div>
     `;
-    rightSidebar.appendChild(widget);
+    sidebar.appendChild(widget);
 
     const iframe = document.createElement('iframe');
-    iframe.id = 'timetable-fetch-iframe';
-    iframe.src = timetableUrl;
-    
-    // Instead of display: none, we position it off-screen but keep it fully sized so React-Big-Calendar renders its text
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '-9999px';
-    iframe.style.width = '1200px';
-    iframe.style.height = '800px';
-    iframe.style.border = 'none';
-    
-    let checkInterval;
+    iframe.src = window.location.href.replace('/courses', '/timetable');
+    iframe.style.cssText = 'position:absolute; left:-9999px; width:1200px; height:800px;';
     
     iframe.onload = () => {
-        checkInterval = setInterval(() => {
+        let attempts = 0;
+        const interval = setInterval(() => {
             try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                const todayEventsContainer = iframeDoc.querySelector('.rbc-day-slot.rbc-today .rbc-events-container');
+                const doc = iframe.contentDocument;
+                const container = doc.querySelector('.rbc-day-slot.rbc-today .rbc-events-container');
+                const events = container?.querySelectorAll('.rbc-event');
                 
-                if (todayEventsContainer) {
-                    const eventEls = todayEventsContainer.querySelectorAll('.rbc-event');
-                    
-                    let isStillRendering = false;
-                    for (let el of eventEls) {
-                        if (!el.querySelector('div[class*="TimetableCalendarEvent__titleLabel"]')) {
-                            isStillRendering = true;
-                            break;
-                        }
-                    }
-
-                    if (isStillRendering) return;
-
-                    clearInterval(checkInterval);
-                    
-                    const listWrapper = document.getElementById('timetable-events-list');
-                    
-                    if (eventEls.length === 0) {
-                        listWrapper.innerHTML = '<div style="padding: 15px; text-align: center; color: #888; font-size: 14px;">No classes scheduled for today!</div>';
+                if (container && events.length >= 0) {
+                    clearInterval(interval);
+                    const list = document.getElementById('timetable-list');
+                    if (events.length === 0) {
+                        list.innerHTML = '<div style="padding:15px; text-align:center; color:#888;">No classes today!</div>';
                     } else {
-                        eventEls.forEach(el => {
-                            const time = el.querySelector('.rbc-event-label')?.textContent.trim() || '';
-                            const title = el.querySelector('div[class*="TimetableCalendarEvent__titleLabel"]')?.textContent.trim() || 'Class';
-                            const location = el.querySelector('div[class*="TimetableCalendarEvent__locationLabel"]')?.textContent.trim() || '';
-                            
-                            // Added "is-timetable-card" so our Quick Add script completely ignores this element
-                            const eventHtml = `
-                                <div class="ConsolidatedDeadlinesWidget__item___beyKO is-timetable-card" tabindex="0">
+                        events.forEach(el => {
+                            const time = el.querySelector('.rbc-event-label')?.textContent || '';
+                            const title = el.querySelector('div[class*="TimetableCalendarEvent__titleLabel"]')?.textContent || 'Class';
+                            const loc = el.querySelector('div[class*="TimetableCalendarEvent__locationLabel"]')?.textContent || '';
+                            list.insertAdjacentHTML('beforeend', `
+                                <div class="ConsolidatedDeadlinesWidget__item___beyKO is-timetable-card">
                                     <div class="ConsolidatedDeadlinesWidget__wrapper___bjJSL">
                                         <div class="ConsolidatedDeadlinesWidget__middleContainer___ARB7o">
-                                            <div class="ConsolidatedDeadlinesWidget__nameWithTagContainer____vDz2">
-                                                <div class="text-label-l ConsolidatedDeadlinesWidget__heading___BGhvo" dir="auto">${title}</div>
-                                            </div>
+                                            <div class="text-label-l ConsolidatedDeadlinesWidget__heading___BGhvo">${title}</div>
                                             <div class="ConsolidatedDeadlinesWidget__dateText___FGTsx">${time}</div>
                                         </div>
-                                        <div class="ConsolidatedDeadlinesWidget__middleContainer___ARB7o">
-                                            <div class="FeedItem__subHeader___l1I5k">
-                                                <div class="FeedItem__bottomTextTitle___BJO8H">${location}</div>
-                                            </div>
-                                        </div>
+                                        <div class="FeedItem__bottomTextTitle___BJO8H">${loc}</div>
                                     </div>
                                 </div>
-                            `;
-                            listWrapper.insertAdjacentHTML('beforeend', eventHtml);
+                            `);
                         });
                     }
-                    
-                    document.getElementById('timetable-loading-state').style.display = 'none';
-                    document.getElementById('timetable-content-wrapper').style.display = 'block';
+                    document.getElementById('timetable-loading').style.display = 'none';
+                    document.getElementById('timetable-content').style.display = 'block';
                     iframe.remove();
                 }
-            } catch (e) {
-                // Ignore cross-origin access errors during initial load
-            }
+            } catch (e) {}
+            if (++attempts > 20) { clearInterval(interval); iframe.remove(); }
         }, 500);
-
-        setTimeout(() => {
-            if (checkInterval) clearInterval(checkInterval);
-            const loader = document.getElementById('timetable-loading-state');
-            if (loader && loader.style.display !== 'none') {
-                loader.textContent = 'Could not load timetable. Please refresh.';
-                iframe.remove();
-            }
-        }, 10000);
     };
-    
     document.body.appendChild(iframe);
 }
 
-function applyVisuals(element, colorValue) {
-    if (!colorValue) return;
-    const setStyle = (val) => element.setAttribute('style', `position: relative; background: ${val} !important; border-color: transparent !important;`);
-
-    if (colorValue === "rainbow") {
-        setStyle("linear-gradient(135deg, #FFADAD, #FFD6A5, #FDFFB6, #CAFFBF, #9BF6FF, #A0C4FF, #BDB2FF, #FFC6FF)");
-    } else if (colorValue === "rainbow-2") {
-        setStyle("linear-gradient(135deg, #845EC2, #D65DB1, #FF6F91, #FF9671, #FFC75F, #F9F871)");
-    } else {
-        element.style.setProperty('background', colorValue, 'important');
-        element.style.setProperty('background-color', colorValue, 'important');
-    }
-}
-
-function updateIndicatorVisual(indicatorElement, colorValue) {
-    if (!colorValue) {
-        indicatorElement.style.background = "#eeeeee";
-        return;
-    }
-    if (colorValue === "rainbow") {
-        indicatorElement.style.background = "linear-gradient(135deg, #FFADAD, #FFD6A5, #FDFFB6, #CAFFBF, #9BF6FF, #A0C4FF, #BDB2FF, #FFC6FF)";
-    } else if (colorValue === "rainbow-2") {
-        indicatorElement.style.background = "linear-gradient(135deg, #845EC2, #D65DB1, #FF6F91, #FF9671, #FFC75F, #F9F871)";
-    } else {
-        indicatorElement.style.background = colorValue;
-    }
-}
-
-function saveAndApplyColor(cardId, color) {
-    classColors[cardId] = color;
-    chrome.storage.sync.set({ classColors: classColors });
-
-    const cards = document.querySelectorAll('div[class*="ClassCardV2__container"]');
-    cards.forEach(card => {
-        const titleEl = card.querySelector('div[class*="ClassCardV2__classLabel"]');
-        if (titleEl && titleEl.textContent.trim() === cardId) {
-            applyVisuals(card, color);
-            const ind = card.querySelector('.toddle-color-indicator');
-            if (ind) updateIndicatorVisual(ind, color);
-        }
-    });
-}
-
-// 7. OBSERVER SETUP
-const observer = new MutationObserver((mutations) => {
-    processClassCards();
-});
-
+// =========================================
+// 8. OBSERVER & INITIALIZATION
+// =========================================
+const observer = new MutationObserver(() => runPageLogic());
 observer.observe(document.body, { childList: true, subtree: true });
 
-// Initial Run
-processClassCards();
+loadExtensionData();
