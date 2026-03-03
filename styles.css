@@ -26,11 +26,11 @@ div[class*="StudentCourses__classesContainer"] {
     backdrop-filter: blur(10px) !important;
     padding: 12px 20px !important;
     border-radius: 24px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
     width: fit-content !important;
     margin-left: auto !important;
     margin-right: auto !important;
-    overflow: visible !important; 
+    overflow: visible !important;
     z-index: 999 !important;
 }
 
@@ -68,7 +68,9 @@ div[class*="StudentCourses__classesContainer"] {
     margin: 0 !important;
 }
 
-div[class*="ButtonCard__badgeWrapper"] { display: none !important; }
+div[class*="ButtonCard__badgeWrapper"] {
+    display: none !important;
+}
 
 /* TOOLTIPS */
 #my-custom-dock div[class*="ButtonCard__rightContainer"] {
@@ -95,8 +97,16 @@ div[class*="ButtonCard__badgeWrapper"] { display: none !important; }
     top: -55px !important;
 }
 
-#my-custom-dock div[class*="ButtonCard__label"] { font-size: 13px !important; font-weight: 600 !important; color: white !important; text-align: center !important; }
-#my-custom-dock div[class*="ButtonCard__subLabel"] { display: none !important; }
+#my-custom-dock div[class*="ButtonCard__label"] {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: white !important;
+    text-align: center !important;
+}
+
+#my-custom-dock div[class*="ButtonCard__subLabel"] {
+    display: none !important;
+}
 
 /* ========================================= */
 /* --- 2. CLASS CARDS & COLOR PICKER --- */
@@ -105,7 +115,8 @@ div[class*="ButtonCard__badgeWrapper"] { display: none !important; }
 div[class*="MyClassList__courseCardsCon"] {
     display: flex !important;
     flex-direction: column !important;
-    gap: 8px !important; /* Slim gap between list items */
+    gap: 8px !important;
+    /* Slim gap between list items */
     width: 100% !important;
 }
 
@@ -115,19 +126,23 @@ div[class*="ClassCardV2__cardWithSideBorder"] {
 
 div[class*="ClassCardV2__container"] {
     width: 100% !important;
-    height: 50px !important; /* Slimmer height for list row */
+    height: 50px !important;
+    /* Slimmer height for list row */
     display: flex !important;
-    flex-direction: row !important; /* Horizontal layout */
-    justify-content: flex-start !important; /* Align text to left */
+    flex-direction: row !important;
+    /* Horizontal layout */
+    justify-content: flex-start !important;
+    /* Align text to left */
     align-items: center !important;
     text-align: left !important;
     padding: 0 20px !important;
     border: 1px solid #e0e0e0 !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-    background: white !important; /* JS will override this */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    background: white !important;
+    /* JS will override this */
     border-radius: 12px !important;
-    position: relative !important; 
-    overflow: visible !important; 
+    position: relative !important;
+    overflow: visible !important;
 }
 
 div[class*="ClassCardV2__classLabel"] {
@@ -136,7 +151,7 @@ div[class*="ClassCardV2__classLabel"] {
     line-height: 1.3 !important;
     color: #333 !important;
     z-index: 5;
-    text-shadow: 0 1px 0 rgba(255,255,255,0.4); 
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 div[class*="ClassCardV2__classProfileImageAvatar"],
@@ -150,7 +165,7 @@ div[class*="MyClassList__showArchiveButton"] {
     position: absolute !important;
     top: 50% !important;
     right: 15px !important;
-    transform: translateY(-50%) !important; 
+    transform: translateY(-50%) !important;
     width: 24px !important;
     height: 24px !important;
     background-color: white !important;
@@ -160,10 +175,11 @@ div[class*="MyClassList__showArchiveButton"] {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
     transition: transform 0.1s, opacity 0.2s !important;
     border: 1px solid #ddd !important;
-    opacity: 0 !important; /* Hidden by default */
+    opacity: 0 !important;
+    /* Hidden by default */
 }
 
 /* Specific position for Timetable Page events */
@@ -182,7 +198,7 @@ div[class*="TimetableCalendarEvent__eventContainer"]:hover .toddle-color-btn,
 }
 
 .toddle-color-btn:hover {
-    transform: translateY(-50%) scale(1.1) !important; 
+    transform: translateY(-50%) scale(1.1) !important;
     border-color: #999 !important;
 }
 
@@ -195,7 +211,7 @@ div[class*="TimetableCalendarEvent__eventContainer"] .toddle-color-btn:hover {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 1px solid rgba(0,0,0,0.1);
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* --- POPUP MENU --- */
@@ -206,9 +222,10 @@ div[class*="TimetableCalendarEvent__eventContainer"] .toddle-color-btn:hover {
     background-color: white;
     padding: 10px;
     border-radius: 12px;
-    box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
     border: 1px solid #eee;
-    width: 155px; /* Increased to accommodate Timetable+ layout */
+    width: 155px;
+    /* Increased to accommodate Timetable+ layout */
     flex-wrap: wrap;
     gap: 8px;
     align-content: flex-start;
@@ -224,7 +241,7 @@ div[class*="TimetableCalendarEvent__eventContainer"] .toddle-color-btn:hover {
     height: 24px;
     border-radius: 50%;
     cursor: pointer;
-    border: 2px solid rgba(0,0,0,0.05);
+    border: 2px solid rgba(0, 0, 0, 0.05);
     transition: transform 0.1s;
     box-sizing: border-box;
 }
@@ -334,7 +351,7 @@ div[class*="StudentCourses__deadlinesWidgetContainerV2"] {
     gap: 20px !important;
 }
 
-div[class*="StudentCourses__deadlinesWidgetContainerV2"] > div[class*="GqlWithLoader__container"] {
+div[class*="StudentCourses__deadlinesWidgetContainerV2"]>div[class*="GqlWithLoader__container"] {
     order: 1 !important;
 }
 
@@ -342,8 +359,8 @@ div[class*="ConsolidatedDeadlinesWidget__containerV2"] {
     background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(10px) !important;
     border-radius: 24px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
-    border: 1px solid rgba(255,255,255,0.5) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
     padding: 20px !important;
     height: auto !important;
     min-height: 350px !important;
@@ -381,7 +398,7 @@ label[for*="NODUE"] {
     border: 1px solid #eee;
     font-size: 13px;
     outline: none;
-    background: rgba(255,255,255,0.5);
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .todo-add-btn {
@@ -408,7 +425,7 @@ label[for*="NODUE"] {
     padding: 8px 12px;
     border-radius: 10px;
     justify-content: space-between;
-    border: 1px solid rgba(0,0,0,0.02);
+    border: 1px solid rgba(0, 0, 0, 0.02);
 }
 
 .todo-item-text {
@@ -447,9 +464,10 @@ div[class*="ConsolidatedDeadlinesWidget__item"] {
     justify-content: center;
     font-size: 16px;
     cursor: pointer;
-    opacity: 0; /* Hidden by default */
+    opacity: 0;
+    /* Hidden by default */
     transition: opacity 0.2s, transform 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     z-index: 10;
 }
 
@@ -469,8 +487,13 @@ div[class*="ConsolidatedDeadlinesWidget__item"]:hover .todo-quick-add-btn {
 }
 
 @keyframes pulse-green {
-    0% { background: rgba(76, 175, 80, 0.2); }
-    100% { background: transparent; }
+    0% {
+        background: rgba(76, 175, 80, 0.2);
+    }
+
+    100% {
+        background: transparent;
+    }
 }
 
 /* Ensure the button is pinned to the bottom right of the assignment row */
@@ -481,7 +504,8 @@ div[class*="ConsolidatedDeadlinesWidget__item"] {
 .todo-quick-add-btn {
     position: absolute !important;
     right: 12px !important;
-    bottom: 8px !important; /* Adjusted to fit the circle in your image */
+    bottom: 8px !important;
+    /* Adjusted to fit the circle in your image */
     width: 24px;
     height: 24px;
     /* ... rest of your existing button styles ... */
@@ -527,7 +551,8 @@ div[class*="ConsolidatedDeadlinesWidget__item"] {
     width: 16px;
     height: 16px;
     margin-right: 10px;
-    accent-color: #333; /* Matches your Add button */
+    accent-color: #333;
+    /* Matches your Add button */
 }
 
 .todo-item-edit-input {
@@ -552,7 +577,8 @@ div[class*="ConsolidatedDeadlinesWidget__item"] {
 }
 
 .todo-clear-btn {
-    display: none; /* Logic handles showing this */
+    display: none;
+    /* Logic handles showing this */
     width: 100%;
     background: transparent;
     border: 1px dashed #ccc;
@@ -596,4 +622,10 @@ body.toddle-todo-active div[class*="ConsolidatedDeadlinesWidget__itemsWrapper"] 
 
 div[class*="CalendarWidget__container"] {
     display: none !important;
+}
+
+.toddle-timetable-items-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
 }

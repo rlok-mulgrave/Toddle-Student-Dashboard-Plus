@@ -26,7 +26,7 @@ function loadExtensionData() {
             // Merge legacy data into new unified map
             savedColors = { ...(result.classColors || {}), ...(result.courseColors || {}) };
         }
-        
+
         if (result.studentTasks) studentTasks = result.studentTasks;
 
         runPageLogic();
@@ -79,7 +79,7 @@ function createGlobalPopup() {
     wheelWrapper.className = 'custom-picker-container';
     wheelWrapper.title = 'Color Wheel';
     wheelWrapper.innerHTML = '🎨';
-    
+
     const wheelInput = document.createElement('input');
     wheelInput.type = 'color';
     wheelInput.className = 'toddle-custom-input';
@@ -95,19 +95,19 @@ function createGlobalPopup() {
     const customStyleBtn = document.createElement('div');
     customStyleBtn.className = 'custom-style-btn';
     customStyleBtn.textContent = 'Custom Style...';
-    
+
     const customArea = document.createElement('div');
     customArea.className = 'custom-input-area';
-    
+
     const customTextInput = document.createElement('input');
     customTextInput.type = 'text';
     customTextInput.className = 'custom-text-input';
     customTextInput.placeholder = 'CSS (e.g. linear-gradient...)';
-    
+
     const applyBtn = document.createElement('button');
     applyBtn.className = 'apply-custom-btn';
     applyBtn.textContent = 'Apply Style';
-    
+
     applyBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (activeItemId && customTextInput.value.trim()) {
@@ -115,7 +115,7 @@ function createGlobalPopup() {
         }
         hidePopup();
     });
-    
+
     customTextInput.addEventListener('click', (e) => e.stopPropagation());
     customStyleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -180,19 +180,18 @@ function processDashboardCards() {
         const titleEl = card.querySelector('div[class*="ClassCardV2__classLabel"]');
         if (!titleEl) return;
 
+        // Remember the original name for storage key before we shorten it
+        if (!titleEl.dataset.originalName) {
+            titleEl.dataset.originalName = titleEl.textContent.trim();
+        }
+
         // Label cleanup
         if (!titleEl.dataset.shortened) {
-            let text = titleEl.textContent;
-            if (text.startsWith("LEAP")) {
-                const parts = text.split(' - ');
-                if (parts.length > 2) titleEl.textContent = parts.slice(0, 2).join(' - ').trim();
-            } else if (text.includes(' - ')) {
-                titleEl.textContent = text.split(' - ')[0].trim();
-            }
+            titleEl.textContent = shortenClassName(titleEl.textContent);
             titleEl.dataset.shortened = "true";
         }
 
-        const classId = titleEl.textContent.trim();
+        const classId = titleEl.dataset.originalName;
         applyVisualStyle(card, savedColors[classId]);
         injectColorButton(card, classId);
     });
@@ -204,7 +203,7 @@ function organizeLayout() {
     for (let label of labels) {
         if (label.textContent.trim() === 'Announcements') {
             const card = label.closest('div[class*="ButtonCard__container"]');
-            if (card?.parentElement) card.parentElement.id = "my-custom-dock"; 
+            if (card?.parentElement) card.parentElement.id = "my-custom-dock";
             break;
         }
     }
@@ -275,19 +274,22 @@ function injectColorButton(parent, itemId) {
 
 function applyVisualStyle(element, color) {
     if (!color) return;
-    
+
     // Gradient check
     if (color === "rainbow" || color === "rainbow-2" || color.includes('gradient') || color.includes('url')) {
         let styleVal = color;
         if (color === "rainbow") styleVal = "linear-gradient(135deg, #FFADAD, #FFD6A5, #FDFFB6, #CAFFBF, #9BF6FF, #A0C4FF, #BDB2FF, #FFC6FF)";
         if (color === "rainbow-2") styleVal = "linear-gradient(135deg, #845EC2, #D65DB1, #FF6F91, #FF9671, #FFC75F, #F9F871)";
-        
-        element.style.setProperty('background', `${styleVal} !important`);
+
+        element.style.setProperty('background', styleVal, 'important');
+        element.style.setProperty('background-image', styleVal, 'important');
+        element.style.setProperty('background-color', 'transparent', 'important');
         element.style.setProperty('border-color', 'transparent', 'important');
     } else {
         // Solid color
-        element.style.setProperty('background', color, 'important');
+        element.style.setProperty('background-image', 'none', 'important');
         element.style.setProperty('background-color', color, 'important');
+        element.style.setProperty('background', color, 'important');
         element.style.setProperty('border-color', color, 'important');
     }
 }
@@ -300,6 +302,18 @@ function updateIndicatorColor(indicator, color) {
     applyVisualStyle(indicator, color);
 }
 
+function shortenClassName(text) {
+    if (!text) return "";
+    let cleanText = text.trim();
+    if (cleanText.startsWith("LEAP")) {
+        const parts = cleanText.split(' - ');
+        if (parts.length > 2) return parts.slice(0, 2).join(' - ').trim();
+    } else if (cleanText.includes(' - ')) {
+        return cleanText.split(' - ')[0].trim();
+    }
+    return cleanText;
+}
+
 function saveAndApplyColor(itemId, color) {
     savedColors[itemId] = color;
     chrome.storage.sync.set({ savedColors: savedColors });
@@ -308,16 +322,19 @@ function saveAndApplyColor(itemId, color) {
     document.querySelectorAll('.toddle-color-btn').forEach(btn => {
         const parent = btn.parentElement;
         const potentialLabels = [
-            'div[class*="ClassCardV2__classLabel"]',
-            'div[class*="TimetableCalendarEvent__titleLabel"]'
+            { sel: 'div[class*="ClassCardV2__classLabel"]', attr: 'originalName' },
+            { sel: 'div[class*="TimetableCalendarEvent__titleLabel"]' }
         ];
-        
-        for (let selector of potentialLabels) {
-            const label = parent.querySelector(selector);
-            if (label && label.textContent.trim() === itemId) {
-                applyVisualStyle(parent, color);
-                updateIndicatorColor(btn.querySelector('.toddle-color-indicator'), color);
-                break;
+
+        for (let config of potentialLabels) {
+            const label = parent.querySelector(config.sel);
+            if (label) {
+                const name = config.attr ? label.dataset[config.attr] : label.textContent.trim();
+                if (name === itemId) {
+                    applyVisualStyle(parent, color);
+                    updateIndicatorColor(btn.querySelector('.toddle-color-indicator'), color);
+                    break;
+                }
             }
         }
     });
@@ -350,7 +367,7 @@ function injectTodoTab() {
     cardsContainer.appendChild(todoContainer);
 
     todoTab.addEventListener('click', () => {
-        tabs.querySelectorAll('label').forEach(t => { 
+        tabs.querySelectorAll('label').forEach(t => {
             t.classList.remove('active-tab-light-inline', 'text-textDefault');
             t.classList.add('non-active-tab-light-inline', 'text-textSubtle');
         });
@@ -370,7 +387,7 @@ function injectTodoTab() {
     });
 
     todoContainer.querySelector('.todo-add-btn').onclick = addNewTask;
-    todoContainer.querySelector('#todo-new-task').onkeypress = (e) => { if(e.key === 'Enter') addNewTask(); };
+    todoContainer.querySelector('#todo-new-task').onkeypress = (e) => { if (e.key === 'Enter') addNewTask(); };
     todoContainer.querySelector('#todo-clear-completed').onclick = clearCompletedTasks;
 }
 
@@ -392,7 +409,7 @@ function renderTasks() {
     if (!list) return;
 
     list.innerHTML = studentTasks.length ? '' : '<div style="text-align:center; font-size:12px; color:#999; margin-top:20px;">No tasks yet!</div>';
-    
+
     document.getElementById('todo-clear-completed').style.display = studentTasks.some(t => t.completed) ? 'block' : 'none';
 
     studentTasks.forEach(task => {
@@ -450,7 +467,7 @@ function injectQuickAddButtons() {
 
 function fetchAndInjectTimetablePreview() {
     if (document.getElementById('my-custom-timetable') || !window.location.href.includes('/courses')) return;
-    
+
     const sidebar = document.querySelector('div[class*="StudentCourses__deadlinesWidgetContainerV2"]');
     if (!sidebar) return;
 
@@ -460,14 +477,14 @@ function fetchAndInjectTimetablePreview() {
     widget.innerHTML = `
         <div class="ConsolidatedDeadlinesWidget__todoHeader___cViri"><div class="ConsolidatedDeadlinesWidget__todoText___aoSHk">Today's Timetable</div></div>
         <div id="timetable-loading" style="padding:20px; text-align:center; color:#888;">Loading classes...</div>
-        <div id="timetable-content" style="display:none;" class="ConsolidatedDeadlinesWidget__cardsContainer___TL_ZY"><div id="timetable-list" class="ConsolidatedDeadlinesWidget__itemsWrapper___i6tIQ"></div></div>
+        <div id="timetable-content" style="display:none;" class="ConsolidatedDeadlinesWidget__cardsContainer___TL_ZY"><div id="timetable-list" class="toddle-timetable-items-wrapper"></div></div>
     `;
     sidebar.appendChild(widget);
 
     const iframe = document.createElement('iframe');
     iframe.src = window.location.href.replace('/courses', '/timetable');
     iframe.style.cssText = 'position:absolute; left:-9999px; width:1200px; height:800px;';
-    
+
     iframe.onload = () => {
         let attempts = 0;
         const interval = setInterval(() => {
@@ -475,7 +492,7 @@ function fetchAndInjectTimetablePreview() {
                 const doc = iframe.contentDocument;
                 const container = doc.querySelector('.rbc-day-slot.rbc-today .rbc-events-container');
                 const events = container?.querySelectorAll('.rbc-event');
-                
+
                 if (container && events.length >= 0) {
                     clearInterval(interval);
                     const list = document.getElementById('timetable-list');
@@ -484,7 +501,8 @@ function fetchAndInjectTimetablePreview() {
                     } else {
                         events.forEach(el => {
                             const time = el.querySelector('.rbc-event-label')?.textContent || '';
-                            const title = el.querySelector('div[class*="TimetableCalendarEvent__titleLabel"]')?.textContent || 'Class';
+                            const rawTitle = el.querySelector('div[class*="TimetableCalendarEvent__titleLabel"]')?.textContent || 'Class';
+                            const title = shortenClassName(rawTitle);
                             const loc = el.querySelector('div[class*="TimetableCalendarEvent__locationLabel"]')?.textContent || '';
                             list.insertAdjacentHTML('beforeend', `
                                 <div class="ConsolidatedDeadlinesWidget__item___beyKO is-timetable-card">
@@ -503,7 +521,7 @@ function fetchAndInjectTimetablePreview() {
                     document.getElementById('timetable-content').style.display = 'block';
                     iframe.remove();
                 }
-            } catch (e) {}
+            } catch (e) { }
             if (++attempts > 20) { clearInterval(interval); iframe.remove(); }
         }, 500);
     };
