@@ -631,3 +631,15 @@ div[class*="CalendarWidget__container"] {
     flex-direction: column !important;
     gap: 12px !important;
 }
+
+/* Clickable Widget Items */
+.is-timetable-card.is-clickable {
+    cursor: pointer !important;
+    transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s !important;
+}
+
+.is-timetable-card.is-clickable:hover {
+    transform: translateY(-2px) !important;
+    background-color: rgba(0, 0, 0, 0.02) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
