@@ -11,15 +11,19 @@ const PRESET_COLORS = [
 
 let savedColors = {}; // Shared map for BOTH classes (dashboard) and courses (timetable)
 let studentTasks = [];
+let classOrder = []; // Persisted order of class original names
 let activeItemId = null; // Can be a card title or course name
 let globalPopup = null;
+let draggedElement = null; // Current card being dragged
+let processingTimeout = null;
+let isInternalUpdate = false;
 
 // =========================================
 // 2. DATA LOAD & CORE SYNC
 // =========================================
 function loadExtensionData() {
     // Migration check: Support both legacy keys if they exist
-    chrome.storage.sync.get(['savedColors', 'classColors', 'courseColors', 'studentTasks'], (result) => {
+    chrome.storage.sync.get(['savedColors', 'classColors', 'courseColors', 'studentTasks', 'classOrder'], (result) => {
         if (result.savedColors) {
             savedColors = result.savedColors;
         } else {
@@ -28,17 +32,36 @@ function loadExtensionData() {
         }
 
         if (result.studentTasks) studentTasks = result.studentTasks;
+        if (result.classOrder) classOrder = result.classOrder;
 
         runPageLogic();
     });
 }
 
 function runPageLogic() {
-    const url = window.location.href;
-    if (url.includes('/courses')) {
-        processDashboardCards();
-    } else if (url.includes('/timetable')) {
-        processTimetableEvents();
+    if (isInternalUpdate) return;
+
+    // Debounce the logic to avoid rapid-fire execution
+    if (processingTimeout) clearTimeout(processingTimeout);
+    processingTimeout = setTimeout(() => {
+        const url = window.location.href;
+        if (url.includes('/courses')) {
+            executeWithObserverDisabled(processDashboardCards);
+        } else if (url.includes('/timetable')) {
+            executeWithObserverDisabled(processTimetableEvents);
+        }
+    }, 150);
+}
+
+function executeWithObserverDisabled(fn) {
+    isInternalUpdate = true;
+    if (observer) observer.disconnect();
+
+    try {
+        fn();
+    } finally {
+        isInternalUpdate = false;
+        startObserver();
     }
 }
 
@@ -175,7 +198,34 @@ function processDashboardCards() {
     injectQuickAddButtons();
     fetchAndInjectTimetablePreview();
 
-    const cards = document.querySelectorAll('div[class*="ClassCardV2__container"]');
+    const container = document.querySelector('div[class*="MyClassList__courseCardsCon"]');
+    if (!container) return;
+
+    const cards = Array.from(container.querySelectorAll('div[class*="ClassCardV2__container"]'));
+
+    // Sort cards based on saved order
+    if (classOrder.length > 0) {
+        const sortedCards = cards.sort((a, b) => {
+            const titleA = a.querySelector('div[class*="ClassCardV2__classLabel"]')?.textContent.trim() || "";
+            const titleB = b.querySelector('div[class*="ClassCardV2__classLabel"]')?.textContent.trim() || "";
+
+            // We use original names for ordering
+            let indexA = classOrder.indexOf(titleA);
+            let indexB = classOrder.indexOf(titleB);
+
+            if (indexA === -1) indexA = 999;
+            if (indexB === -1) indexB = 999;
+
+            return indexA - indexB;
+        });
+
+        // Re-append in sorted order
+        sortedCards.forEach(card => {
+            const wrapper = card.closest('div[class*="ClassCardV2__cardWithSideBorder"]');
+            if (wrapper) container.appendChild(wrapper);
+        });
+    }
+
     cards.forEach(card => {
         const titleEl = card.querySelector('div[class*="ClassCardV2__classLabel"]');
         if (!titleEl) return;
@@ -185,16 +235,93 @@ function processDashboardCards() {
             titleEl.dataset.originalName = titleEl.textContent.trim();
         }
 
+        const classId = titleEl.dataset.originalName;
+
+        // Add Drag and Drop attributes
+        card.setAttribute('draggable', 'true');
+        if (!card.dataset.dndListeners) {
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragover', handleDragOver);
+            card.addEventListener('dragleave', handleDragLeave);
+            card.addEventListener('drop', handleDrop);
+            card.addEventListener('dragend', handleDragEnd);
+            card.dataset.dndListeners = "true";
+        }
+
         // Label cleanup
         if (!titleEl.dataset.shortened) {
             titleEl.textContent = shortenClassName(titleEl.textContent);
             titleEl.dataset.shortened = "true";
         }
 
-        const classId = titleEl.dataset.originalName;
         applyVisualStyle(card, savedColors[classId]);
         injectColorButton(card, classId);
     });
+}
+
+// =========================================
+// 4.5 DRAG AND DROP HANDLERS
+// =========================================
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('toddle-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) e.preventDefault();
+    this.classList.add('toddle-drag-over');
+    return false;
+}
+
+function handleDragLeave() {
+    this.classList.remove('toddle-drag-over');
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) e.stopPropagation();
+
+    this.classList.remove('toddle-drag-over');
+
+    if (draggedElement !== this) {
+        const container = this.closest('div[class*="MyClassList__courseCardsCon"]');
+        const allCardsWrappers = Array.from(container.querySelectorAll('div[class*="ClassCardV2__cardWithSideBorder"]'));
+
+        const draggedWrapper = draggedElement.closest('div[class*="ClassCardV2__cardWithSideBorder"]');
+        const targetWrapper = this.closest('div[class*="ClassCardV2__cardWithSideBorder"]');
+
+        const draggedIndex = allCardsWrappers.indexOf(draggedWrapper);
+        const targetIndex = allCardsWrappers.indexOf(targetWrapper);
+
+        if (draggedIndex < targetIndex) {
+            targetWrapper.after(draggedWrapper);
+        } else {
+            targetWrapper.before(draggedWrapper);
+        }
+
+        // Save new order
+        saveClassOrder();
+    }
+
+    return false;
+}
+
+function handleDragEnd() {
+    this.classList.remove('toddle-dragging');
+    document.querySelectorAll('div[class*="ClassCardV2__container"]').forEach(c => {
+        c.classList.remove('toddle-drag-over');
+    });
+}
+
+function saveClassOrder() {
+    const cards = document.querySelectorAll('div[class*="ClassCardV2__container"]');
+    const newOrder = Array.from(cards).map(card => {
+        const titleEl = card.querySelector('div[class*="ClassCardV2__classLabel"]');
+        return titleEl.dataset.originalName || titleEl.textContent.trim();
+    });
+
+    classOrder = newOrder;
+    chrome.storage.sync.set({ classOrder: newOrder });
 }
 
 function organizeLayout() {
@@ -531,7 +658,33 @@ function fetchAndInjectTimetablePreview() {
 // =========================================
 // 8. OBSERVER & INITIALIZATION
 // =========================================
-const observer = new MutationObserver(() => runPageLogic());
-observer.observe(document.body, { childList: true, subtree: true });
+const observer = new MutationObserver((mutations) => {
+    // Optimization: Only re-run if children were added or removed
+    const hasStructureChange = mutations.some(m => m.type === 'childList');
+    if (hasStructureChange) {
+        runPageLogic();
+    }
+});
+
+function startObserver() {
+    // We must watch document.body because Toddle is an SPA;
+    // main containers are detached and replaced during navigation.
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// Watch for URL changes (Single Page Application navigation)
+window.addEventListener('popstate', () => {
+    runPageLogic();
+});
+
+// Periodic check for URL changes (fallback for some SPA routers)
+let lastUrl = window.location.href;
+setInterval(() => {
+    if (window.location.href !== lastUrl) {
+        lastUrl = window.location.href;
+        runPageLogic();
+    }
+}, 1000);
 
 loadExtensionData();
+startObserver();
