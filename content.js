@@ -370,8 +370,8 @@ function moveProjectsToDock() {
     const dock = document.getElementById('my-custom-dock');
     if (!dock) return;
 
-    ['DP_CAS', 'DP_TOK_ESSAY'].forEach(id => {
-        const card = document.querySelector(`div[data-test-id="button-dashboard-projectGroup-${id}"]`);
+    const cards = document.querySelectorAll('div[data-test-id^="button-dashboard-projectGroup-"]');
+    cards.forEach(card => {
         if (card && card.parentElement.id !== 'my-custom-dock') {
             dock.appendChild(card);
         }
@@ -507,12 +507,12 @@ function injectTodoTab() {
     const cardsContainer = document.querySelector('div[class*="ConsolidatedDeadlinesWidget__cardsContainer"]');
     if (!tabs || !cardsContainer || document.getElementById('toddle-todo-tab')) return;
 
-    const overdueTab = document.querySelector('label[for*="OVERDUE"]');
+    const overdueTab = document.querySelector('label[data-test-id*="OVERDUE"]') || document.querySelector('label[for*="OVERDUE"]');
     if (!overdueTab) return;
 
     const todoTab = document.createElement('label');
     todoTab.id = 'toddle-todo-tab';
-    todoTab.className = overdueTab.className.replace('active-tab', 'non-active-tab') + ' todo-tab-custom';
+    todoTab.className = overdueTab.className.replace('active-tab', 'non-active-tab').replace('non-non-active-tab', 'non-active-tab') + ' todo-tab-custom';
     todoTab.innerHTML = `<div class="flex justify-center items-center w-full" style="padding: 8px 8px 10px;"><span class="truncate max-w-full">TO-DO</span></div>`;
     overdueTab.parentNode.insertBefore(todoTab, overdueTab.nextSibling);
 

@@ -405,7 +405,8 @@ div[class*="ConsolidatedDeadlinesWidget__containerV2"] {
     min-height: 350px !important;
 }
 
-label[for*="NODUE"] {
+div[class*="tabs-container"] label[data-test-id*="NODUE"],
+div[class*="tabs-container"] label[for*="NODUE"] {
     display: none !important;
 }
 
