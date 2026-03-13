@@ -14,27 +14,36 @@ div[class*="StudentCourses__classesContainer"] {
     margin-bottom: 30px !important;
 }
 
-/* --- THE DOCK --- */
+/* --- THE DOCK (Relocated to Side Panel) --- */
 #my-custom-dock {
-    order: 2 !important;
+    position: relative !important;
+    order: 999 !important;
+    /* Pin to bottom of side panel flex column */
+    margin: 20px auto 0 !important;
     display: flex !important;
     flex-direction: row !important;
     justify-content: center !important;
+    align-items: center !important;
     flex-wrap: nowrap !important;
-    gap: 12px !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(10px) !important;
-    padding: 12px 20px !important;
-    border-radius: 24px !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+    gap: 8px !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(15px) !important;
+    padding: 10px 18px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
     width: fit-content !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
+    z-index: 100 !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
     overflow: visible !important;
-    z-index: 999 !important;
+
+    /* Ensure no residual grid styles affect our new flex container */
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    grid-gap: 0 !important;
+    min-height: 0 !important;
 }
 
-/* DOCK ITEMS */
+/* Override Toddle's default grid behavior for children */
 #my-custom-dock div[class*="ButtonCard__container"] {
     width: 50px !important;
     height: 50px !important;
@@ -55,6 +64,16 @@ div[class*="StudentCourses__classesContainer"] {
     z-index: 100 !important;
 }
 
+/* Hide labels in the dock globally */
+#my-custom-dock div[class*="ButtonCard__rightContainer"]:not([id]) {
+    display: none !important;
+}
+
+/* Re-enable and style tooltips */
+#my-custom-dock div[class*="ButtonCard__container"]:hover div[class*="ButtonCard__rightContainer"] {
+    display: block !important;
+}
+
 #my-custom-dock div[class*="ButtonCard__leftContainer"] {
     width: 100% !important;
     padding: 0 !important;
@@ -68,8 +87,26 @@ div[class*="StudentCourses__classesContainer"] {
     margin: 0 !important;
 }
 
+/* BADGES (Notification dots) */
 div[class*="ButtonCard__badgeWrapper"] {
-    display: none !important;
+    display: block !important;
+    z-index: 10 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+}
+
+#my-custom-dock div[class*="ButtonCard__badgeWrapper"] {
+    top: 2px !important;
+    right: 2px !important;
+    transform: scale(0.7) !important;
+}
+
+/* Ensure parents don't clip badges */
+div[class*="ButtonCard__rightIconContainer"],
+div[class*="ButtonCard__leftContainer"],
+div[class*="ButtonCard__iconContainer"] {
+    overflow: visible !important;
+    position: relative !important;
 }
 
 /* TOOLTIPS */

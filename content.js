@@ -45,7 +45,9 @@ function runPageLogic() {
     if (processingTimeout) clearTimeout(processingTimeout);
     processingTimeout = setTimeout(() => {
         const url = window.location.href;
-        if (url.includes('/courses')) {
+
+        // Broadened check for dashboard content
+        if (url.includes('/courses') || document.querySelector('div[class*="StudentCourses__"]')) {
             executeWithObserverDisabled(processDashboardCards);
         } else if (url.includes('/timetable')) {
             executeWithObserverDisabled(processTimetableEvents);
@@ -325,13 +327,41 @@ function saveClassOrder() {
 }
 
 function organizeLayout() {
-    if (document.getElementById('my-custom-dock')) return;
-    const labels = document.querySelectorAll('div[class*="ButtonCard__label"]');
-    for (let label of labels) {
-        if (label.textContent.trim() === 'Announcements') {
-            const card = label.closest('div[class*="ButtonCard__container"]');
-            if (card?.parentElement) card.parentElement.id = "my-custom-dock";
-            break;
+    let dock = document.getElementById('my-custom-dock');
+    const sidePanel = document.querySelector('div[class*="StudentCourses__leftInnerContainer"]');
+
+    if (!dock && sidePanel) {
+        dock = document.createElement('div');
+        dock.id = 'my-custom-dock';
+        sidePanel.appendChild(dock);
+    }
+
+    if (!dock) return;
+
+    // Target the specific container division provided by the user
+    const shortcutGrid = document.querySelector('div[class*="announcementButtonContainer"]');
+
+    if (shortcutGrid) {
+        const cards = shortcutGrid.querySelectorAll('div[class*="ButtonCard__container"]');
+        cards.forEach(card => {
+            if (card.parentElement.id !== 'my-custom-dock') {
+                dock.appendChild(card);
+            }
+        });
+        // Hide the original container to prevent it from cluttering the top
+        shortcutGrid.style.display = 'none';
+    } else {
+        // Fallback: If container isn't found, find the announcements card and move it
+        const labels = document.querySelectorAll('div[class*="ButtonCard__label"]');
+        for (let label of labels) {
+            const text = label.textContent.trim().toLowerCase();
+            if (text.includes('announcement')) {
+                const card = label.closest('div[class*="ButtonCard__container"]');
+                if (card && card.parentElement.id !== 'my-custom-dock') {
+                    dock.appendChild(card);
+                    break;
+                }
+            }
         }
     }
 }
@@ -342,7 +372,9 @@ function moveProjectsToDock() {
 
     ['DP_CAS', 'DP_TOK_ESSAY'].forEach(id => {
         const card = document.querySelector(`div[data-test-id="button-dashboard-projectGroup-${id}"]`);
-        if (card && card.parentElement.id !== 'my-custom-dock') dock.appendChild(card);
+        if (card && card.parentElement.id !== 'my-custom-dock') {
+            dock.appendChild(card);
+        }
     });
 
     const projectsList = document.querySelector('div[class*="GroupedProjectGroupList__container"]');
