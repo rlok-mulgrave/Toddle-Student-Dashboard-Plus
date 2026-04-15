@@ -17,13 +17,16 @@ let globalPopup = null;
 let draggedElement = null; // Current card being dragged
 let processingTimeout = null;
 let isInternalUpdate = false;
+let extensionEnabled = true; // Global toggle state
 
 // =========================================
 // 2. DATA LOAD & CORE SYNC
 // =========================================
 function loadExtensionData() {
     // Migration check: Support both legacy keys if they exist
-    chrome.storage.sync.get(['savedColors', 'classColors', 'courseColors', 'studentTasks', 'classOrder'], (result) => {
+    chrome.storage.sync.get(['savedColors', 'classColors', 'courseColors', 'studentTasks', 'classOrder', 'extensionEnabled'], (result) => {
+        extensionEnabled = result.extensionEnabled !== false; // Default to true
+
         if (result.savedColors) {
             savedColors = result.savedColors;
         } else {
@@ -34,12 +37,40 @@ function loadExtensionData() {
         if (result.studentTasks) studentTasks = result.studentTasks;
         if (result.classOrder) classOrder = result.classOrder;
 
-        runPageLogic();
+        if (extensionEnabled) {
+            enableExtension();
+        } else {
+            disableExtension();
+        }
     });
 }
 
+function enableExtension() {
+    document.body.classList.add('toddle-plus-enabled');
+    runPageLogic();
+    startObserver();
+}
+
+function disableExtension() {
+    document.body.classList.remove('toddle-plus-enabled');
+    if (observer) observer.disconnect();
+    revertModifications();
+}
+
+// Listen for toggle changes from popup
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes.extensionEnabled) {
+        extensionEnabled = changes.extensionEnabled.newValue;
+        if (extensionEnabled) {
+            enableExtension();
+        } else {
+            disableExtension();
+        }
+    }
+});
+
 function runPageLogic() {
-    if (isInternalUpdate) return;
+    if (isInternalUpdate || !extensionEnabled) return;
 
     // Debounce the logic to avoid rapid-fire execution
     if (processingTimeout) clearTimeout(processingTimeout);
@@ -718,5 +749,67 @@ setInterval(() => {
     }
 }, 1000);
 
+function revertModifications() {
+    // 1. Restore Class Cards
+    document.querySelectorAll('div[class*="ClassCardV2__classLabel"]').forEach(titleEl => {
+        if (titleEl.dataset.originalName) {
+            titleEl.textContent = titleEl.dataset.originalName;
+            delete titleEl.dataset.shortened;
+        }
+    });
+
+    // 2. Clear Styles from Cards and Timetable
+    document.querySelectorAll('div[class*="ClassCardV2__container"], div[class*="TimetableCalendarEvent__eventContainer"]').forEach(el => {
+        el.style.background = '';
+        el.style.backgroundImage = '';
+        el.style.backgroundColor = '';
+        el.style.borderColor = '';
+    });
+
+    // --- NEW: Move elements back to their original homes before removing the dock ---
+    const dock = document.getElementById('my-custom-dock');
+    if (dock) {
+        const shortcutGrid = document.querySelector('div[class*="announcementButtonContainer"]');
+        if (shortcutGrid) {
+            dock.querySelectorAll('div[class*="ButtonCard__container"]').forEach(card => {
+                shortcutGrid.appendChild(card);
+            });
+        }
+
+        const projectsList = document.querySelector('div[class*="GroupedProjectGroupList__container"]');
+        if (projectsList) {
+            dock.querySelectorAll('div[data-test-id^="button-dashboard-projectGroup-"]').forEach(card => {
+                projectsList.appendChild(card);
+            });
+        }
+    }
+
+    // 3. Remove Injected Elements
+    const injectedIds = ['my-custom-dock', 'my-custom-timetable', 'toddle-todo-container', 'toddle-todo-tab'];
+    injectedIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    });
+
+    document.querySelectorAll('.toddle-color-btn, .todo-quick-add-btn').forEach(el => el.remove());
+    if (globalPopup) {
+        globalPopup.remove();
+        globalPopup = null;
+    }
+
+    // 4. Restore Visibility
+    const hiddenSelectors = [
+        'div[class*="announcementButtonContainer"]',
+        'div[class*="GroupedProjectGroupList__container"]',
+        'div[class*="CalendarWidget__container"]'
+    ];
+    hiddenSelectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.style.display = '';
+    });
+
+    // 5. Cleanup classes
+    document.body.classList.remove('toddle-todo-active');
+}
+
 loadExtensionData();
-startObserver();
